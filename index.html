@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PixTronix</title>
+    <title>Фоторедактор</title>
     <style>
         * {
             margin: 0;
@@ -483,6 +483,162 @@
             width: 300px;
             height: 300px;
         }
+
+        /* Добавляем модальное окно для создания проекта */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .new-project-dialog {
+            background: #2a2a2a;
+            border-radius: 8px;
+            padding: 24px;
+            width: 800px;
+            max-width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .templates-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .template-item {
+            background: #333;
+            border-radius: 8px;
+            padding: 12px;
+            cursor: pointer;
+            transition: transform 0.2s, background-color 0.2s;
+        }
+
+        .template-item:hover {
+            background: #444;
+            transform: translateY(-2px);
+        }
+
+        .template-preview {
+            background: #222;
+            border-radius: 4px;
+            margin-bottom: 12px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .preview-box {
+            background: #444;
+            border: 1px solid #555;
+        }
+
+        /* Пропорции для превью */
+        .vertical .preview-box {
+            padding-bottom: 177.77%; /* 9:16 */
+        }
+
+        .horizontal .preview-box {
+            padding-bottom: 56.25%; /* 16:9 */
+        }
+
+        .square .preview-box {
+            padding-bottom: 100%; /* 1:1 */
+        }
+
+        .vertical-photo .preview-box {
+            padding-bottom: 133.33%; /* 3:4 */
+        }
+
+        .horizontal-photo .preview-box {
+            padding-bottom: 75%; /* 4:3 */
+        }
+
+        .template-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .template-name {
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .template-size, .template-ratio {
+            font-size: 12px;
+            color: #888;
+        }
+
+        .custom-size {
+            margin-top: 24px;
+            padding-top: 24px;
+            border-top: 1px solid #444;
+        }
+
+        .size-inputs {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 16px;
+            margin-top: 16px;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .input-group input {
+            background: #333;
+            border: 1px solid #444;
+            padding: 8px 12px;
+            border-radius: 4px;
+            color: white;
+            font-size: 14px;
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .modal-actions button {
+            padding: 8px 24px;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+
+        .cancel-btn {
+            background: #444;
+            color: white;
+        }
+
+        .create-btn {
+            background: #8A2BE2;
+            color: white;
+        }
+
+        .cancel-btn:hover {
+            background: #555;
+        }
+
+        .create-btn:hover {
+            background: #9A3BF2;
+        }
     </style>
 </head>
 <body>
@@ -497,7 +653,7 @@
         <div class="start-options">
             <h2 class="section-title">Начать работу</h2>
             <div class="start-grid">
-                <div class="start-option" onclick="createNewProject()">
+                <div class="start-option" onclick="showNewProjectDialog()">
                     <i>+</i>
                     <div>Новый проект</div>
                     <small>800 × 600</small>
@@ -535,14 +691,104 @@
         </div>
     </div>
 
+    <!-- Добавляем модальное окно для создания проекта -->
+    <div id="newProjectDialog" class="modal">
+        <div class="modal-content new-project-dialog">
+            <h2>Новый проект</h2>
+            
+            <div class="project-templates">
+                <h3>Популярные размеры</h3>
+                <div class="templates-grid">
+                    <div class="template-item" data-width="1080" data-height="1920">
+                        <div class="template-preview vertical">
+                            <div class="preview-box"></div>
+                        </div>
+                        <div class="template-info">
+                            <span class="template-name">История Instagram</span>
+                            <span class="template-size">1080 × 1920</span>
+                            <span class="template-ratio">9:16</span>
+                        </div>
+                    </div>
+                    
+                    <div class="template-item" data-width="1920" data-height="1080">
+                        <div class="template-preview horizontal">
+                            <div class="preview-box"></div>
+                        </div>
+                        <div class="template-info">
+                            <span class="template-name">YouTube Превью</span>
+                            <span class="template-size">1920 × 1080</span>
+                            <span class="template-ratio">16:9</span>
+                        </div>
+                    </div>
+                    
+                    <div class="template-item" data-width="1080" data-height="1080">
+                        <div class="template-preview square">
+                            <div class="preview-box"></div>
+                        </div>
+                        <div class="template-info">
+                            <span class="template-name">Пост Instagram</span>
+                            <span class="template-size">1080 × 1080</span>
+                            <span class="template-ratio">1:1</span>
+                        </div>
+                    </div>
+                    
+                    <div class="template-item" data-width="1200" data-height="1600">
+                        <div class="template-preview vertical-photo">
+                            <div class="preview-box"></div>
+                        </div>
+                        <div class="template-info">
+                            <span class="template-name">Вертикальное фото</span>
+                            <span class="template-size">1200 × 1600</span>
+                            <span class="template-ratio">3:4</span>
+                        </div>
+                    </div>
+                    
+                    <div class="template-item" data-width="1600" data-height="1200">
+                        <div class="template-preview horizontal-photo">
+                            <div class="preview-box"></div>
+                        </div>
+                        <div class="template-info">
+                            <span class="template-name">Горизонтальное фото</span>
+                            <span class="template-size">1600 × 1200</span>
+                            <span class="template-ratio">4:3</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="custom-size">
+                <h3>Пользовательский размер</h3>
+                <div class="size-inputs">
+                    <div class="input-group">
+                        <label>Ширина (px)</label>
+                        <input type="number" id="customWidth" value="800" min="1" max="10000">
+                    </div>
+                    <div class="input-group">
+                        <label>Высота (px)</label>
+                        <input type="number" id="customHeight" value="600" min="1" max="10000">
+                    </div>
+                    <div class="input-group">
+                        <label>Название</label>
+                        <input type="text" id="projectName" placeholder="Мой проект">
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-actions">
+                <button class="cancel-btn" onclick="hideNewProjectDialog()">Отмена</button>
+                <button class="create-btn" onclick="createCustomProject()">Создать</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         let projectToDelete = null;
 
-        function createNewProject(width, height) {
+        function createNewProject(width = 800, height = 600, name = 'Новый проект') {
             const projectId = 'project_' + Date.now();
             const newProject = {
                 id: projectId,
-                name: 'Новый проект',
+                name: name,
                 width: width,
                 height: height,
                 lastModified: Date.now(),
@@ -558,23 +804,20 @@
         }
 
         function loadRecentProjects() {
-            const projects = JSON.parse(localStorage.getItem('photoEditorProjects') || '[]')
-                .sort((a, b) => b.lastModified - a.lastModified)
-                .slice(0, 5);
-
             const container = document.getElementById('recentProjects');
             container.innerHTML = '';
-
+            
+            const projects = getAllProjects().slice(0, 5); // Берем последние 5 проектов
+            
             projects.forEach(project => {
                 const item = document.createElement('div');
                 item.className = 'recent-item';
+                item.setAttribute('data-project-id', project.id); // Добавляем ID проекта
+                item.onclick = () => editProject(project.id);
                 
                 const projectContent = document.createElement('div');
-                projectContent.style.flex = '1';
                 projectContent.style.display = 'flex';
-                projectContent.style.cursor = 'pointer';
-                projectContent.onclick = () => window.location.href = `editing.html?id=${project.id}`;
-                
+                projectContent.style.flex = '1';
                 projectContent.innerHTML = `
                     <div class="recent-preview">
                         ${project.preview ? `<img src="${project.preview}" alt="" style="width: 100%; height: 100%; object-fit: cover;">` : ''}
@@ -589,44 +832,13 @@
                 deleteBtn.className = 'delete-icon';
                 deleteBtn.onclick = (e) => {
                     e.stopPropagation();
-                    deleteRecentProject(item, project.id);
+                    showDeleteConfirmation(project.id);
                 };
 
                 item.appendChild(projectContent);
                 item.appendChild(deleteBtn);
                 container.appendChild(item);
             });
-        }
-
-        function deleteRecentProject(element, projectId) {
-            element.classList.add('deleting');
-            
-            // Находим и анимируем карточку проекта в основном списке
-            const projectCard = document.querySelector(`.project-card[data-project-id="${projectId}"]`);
-            if (projectCard) {
-                projectCard.classList.add('deleting');
-            }
-
-            setTimeout(() => {
-                const projects = getAllProjects();
-                const updatedProjects = projects.filter(p => p.id !== projectId);
-                localStorage.setItem('photoEditorProjects', JSON.stringify(updatedProjects));
-                
-                // Плавно удаляем элементы
-                element.style.height = '0';
-                element.style.margin = '0';
-                element.style.padding = '0';
-                if (projectCard) {
-                    projectCard.style.height = '0';
-                    projectCard.style.margin = '0';
-                    projectCard.style.padding = '0';
-                }
-
-                setTimeout(() => {
-                    loadRecentProjects();
-                    loadProjects();
-                }, 300);
-            }, 300);
         }
 
         function getAllProjects() {
@@ -722,11 +934,37 @@
 
         function confirmDelete() {
             if (projectToDelete) {
-                const projects = getAllProjects();
-                const updatedProjects = projects.filter(p => p.id !== projectToDelete);
-                localStorage.setItem('photoEditorProjects', JSON.stringify(updatedProjects));
-                hideDeleteConfirmation();
-                loadProjects();
+                // Находим все элементы проекта
+                const projectCard = document.querySelector(`.project-card[data-project-id="${projectToDelete}"]`);
+                const recentItem = document.querySelector(`.recent-item[data-project-id="${projectToDelete}"]`);
+                
+                // Добавляем анимацию удаления
+                if (projectCard) projectCard.classList.add('deleting');
+                if (recentItem) recentItem.classList.add('deleting');
+                
+                setTimeout(() => {
+                    const projects = getAllProjects();
+                    const updatedProjects = projects.filter(p => p.id !== projectToDelete);
+                    localStorage.setItem('photoEditorProjects', JSON.stringify(updatedProjects));
+                    
+                    // Плавно удаляем элементы
+                    if (projectCard) {
+                        projectCard.style.height = '0';
+                        projectCard.style.margin = '0';
+                        projectCard.style.padding = '0';
+                    }
+                    if (recentItem) {
+                        recentItem.style.height = '0';
+                        recentItem.style.margin = '0';
+                        recentItem.style.padding = '0';
+                    }
+
+                    setTimeout(() => {
+                        loadProjects();
+                        loadRecentProjects();
+                        hideDeleteConfirmation();
+                    }, 300);
+                }, 300);
             }
         }
 
@@ -765,6 +1003,33 @@
                 loadRecentProjects();
             }
         }
+
+        function showNewProjectDialog() {
+            document.getElementById('newProjectDialog').style.display = 'flex';
+        }
+
+        function hideNewProjectDialog() {
+            document.getElementById('newProjectDialog').style.display = 'none';
+        }
+
+        function createCustomProject() {
+            const width = parseInt(document.getElementById('customWidth').value);
+            const height = parseInt(document.getElementById('customHeight').value);
+            const name = document.getElementById('projectName').value || 'Новый проект';
+            
+            createNewProject(width, height, name);
+            hideNewProjectDialog();
+        }
+
+        // Добавляем обработчики для шаблонов
+        document.querySelectorAll('.template-item').forEach(template => {
+            template.addEventListener('click', () => {
+                const width = parseInt(template.dataset.width);
+                const height = parseInt(template.dataset.height);
+                const name = template.querySelector('.template-name').textContent;
+                createNewProject(width, height, name);
+            });
+        });
     </script>
 </body>
 </html>

@@ -49,24 +49,25 @@
         .tool-btn {
             width: 40px;
             height: 40px;
-            background-color: #333;
-            border: none;
+            margin: 2px;
+            border: 1px solid #444;
+            background: #333;
+            color: white;
             cursor: pointer;
-            color: #fff;
             display: flex;
             align-items: center;
             justify-content: center;
-            position: relative;
             font-size: 20px;
+            transition: background-color 0.2s;
         }
 
         .tool-btn:hover {
-            background-color: #444;
+            background: #444;
         }
 
         .tool-btn.active {
-            background-color: #444;
-            box-shadow: inset 0 0 0 2px #8A2BE2;
+            background: #555;
+            border-color: #666;
         }
 
         .tool-btn .tooltip {
@@ -405,12 +406,95 @@
                 transform: scale(0.98);
             }
         }
+
+        /* Стили для кнопок истории */
+        .history-controls {
+            display: flex;
+            gap: 5px;
+            margin-right: 10px;
+        }
+
+        .history-controls button {
+            width: 30px;
+            height: 30px;
+            font-size: 18px;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .history-controls button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Стили для модального окна */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .format-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            justify-content: center;
+        }
+
+        /* Стили для toast уведомления */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #333;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 4px;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+            z-index: 1000;
+        }
+
+        .toast.show {
+            opacity: 1;
+            animation: slideUp 0.3s ease-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translate(-50%, 100%);
+            }
+            to {
+                transform: translate(-50%, 0);
+            }
+        }
     </style>
 </head>
 <body>
     <div class="header">
         <div class="project-info">
             <button onclick="window.location.href='index.html'" class="nav-btn">← Назад</button>
+            <div class="history-controls">
+                <button onclick="undo()" class="nav-btn" id="undoBtn" disabled>↶</button>
+                <button onclick="redo()" class="nav-btn" id="redoBtn" disabled>↷</button>
+            </div>
             <div class="project-name">
                 <span class="project-name-text" onclick="startEditing()"
                       id="projectName">Без названия</span>
@@ -419,16 +503,15 @@
             </div>
         </div>
         <div class="header-controls">
-            <button onclick="downloadImage()" class="nav-btn">Скачать</button>
+            <button onclick="showDownloadDialog()" class="nav-btn">Скачать</button>
             <button onclick="saveProject()" class="nav-btn">Сохранить</button>
         </div>
     </div>
 
     <div class="workspace">
         <div class="tools-panel">
-            <button class="tool-btn" data-tool="move">
-                ↕
-                <span class="tooltip">Перемещение (V)</span>
+            <button class="tool-btn" data-tool="move" title="Перемещение (M)">
+                <i class="fas fa-arrows-alt">↔</i>
             </button>
             <button class="tool-btn" data-tool="brush">
                 🖌
@@ -437,6 +520,9 @@
             <button class="tool-btn" data-tool="fill">
                 🪣
                 <span class="tooltip">Заливка (G)</span>
+            </button>
+            <button class="tool-btn" data-tool="eraser" title="Ластик (E)">
+                <i class="fas fa-eraser">🧹</i>
             </button>
         </div>
 
@@ -495,10 +581,33 @@
                     <input type="color" id="fillColor" class="color-picker" value="#000000">
                 </div>
             </div>
+
+            <div class="panel-section eraser-settings">
+                <div class="panel-title">Настройки ластика</div>
+                <div class="control-group">
+                    <div class="control-row">
+                        <label>Размер:</label>
+                        <input type="range" id="eraserSize" min="1" max="100" value="20">
+                        <input type="number" id="eraserSizeNum" min="1" max="100" value="20">
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
     <div class="cursor-overlay"></div>
+
+    <div id="downloadDialog" class="modal" style="display: none;">
+        <div class="modal-content">
+            <h3>Выберите формат</h3>
+            <div class="format-buttons">
+                <button onclick="downloadImage('png')" class="nav-btn">PNG</button>
+                <button onclick="downloadImage('jpg')" class="nav-btn">JPG</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast"></div>
 
     <script>
         const canvas = document.getElementById('canvas');
@@ -510,6 +619,92 @@
         let lastY = 0;
         let zoomLevel = 1;
         const zoomLevelDisplay = document.querySelector('.zoom-level');
+
+        // История действий
+        let history = [];
+        let historyIndex = -1;
+
+        // Сохраняем состояние в историю
+        function saveToHistory() {
+            // Обрезаем историю до текущего индекса
+            history = history.slice(0, historyIndex + 1);
+            
+            // Добавляем новое состояние
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            history.push(imageData);
+            historyIndex++;
+            
+            updateHistoryButtons();
+        }
+
+        // Обновляем состояние кнопок истории
+        function updateHistoryButtons() {
+            document.getElementById('undoBtn').disabled = historyIndex <= 0;
+            document.getElementById('redoBtn').disabled = historyIndex >= history.length - 1;
+        }
+
+        // Отмена действия (Ctrl+Z)
+        function undo() {
+            if (historyIndex > 0) {
+                historyIndex--;
+                ctx.putImageData(history[historyIndex], 0, 0);
+                updateHistoryButtons();
+            }
+        }
+
+        // Возврат действия (Ctrl+Y)
+        function redo() {
+            if (historyIndex < history.length - 1) {
+                historyIndex++;
+                ctx.putImageData(history[historyIndex], 0, 0);
+                updateHistoryButtons();
+            }
+        }
+
+        // Функция ластика
+        function erase(e) {
+            if (!isDrawing || currentTool !== 'eraser') return;
+
+            const pos = getCanvasCoordinates(e);
+            const eraserSize = parseInt(document.getElementById('eraserSize').value);
+            
+            ctx.save();
+            ctx.globalCompositeOperation = 'destination-out';
+            ctx.beginPath();
+            ctx.arc(pos.x, pos.y, eraserSize / 2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+
+        // Диалог скачивания
+        function showDownloadDialog() {
+            document.getElementById('downloadDialog').style.display = 'flex';
+        }
+
+        function downloadImage(format) {
+            const link = document.createElement('a');
+            link.download = `${currentProject.name || 'image'}.${format}`;
+            
+            if (format === 'jpg') {
+                link.href = canvas.toDataURL('image/jpeg', 0.8);
+            } else {
+                link.href = canvas.toDataURL('image/png');
+            }
+            
+            link.click();
+            document.getElementById('downloadDialog').style.display = 'none';
+        }
+
+        // Toast уведомление
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
 
         // Инициализация проекта
         async function loadProject() {
@@ -537,6 +732,7 @@
                     canvas.width = img.width;
                     canvas.height = img.height;
                     ctx.drawImage(img, 0, 0);
+                    saveToHistory(); // Сохраняем начальное состояние после загрузки
                 };
                 img.src = currentProject.imageData;
             } else {
@@ -544,6 +740,7 @@
                 canvas.height = currentProject.height || 600;
                 ctx.fillStyle = '#ffffff';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
+                saveToHistory(); // Сохраняем начальное состояние
             }
         }
 
@@ -551,17 +748,15 @@
         document.querySelectorAll('.tool-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 const tool = btn.dataset.tool;
-                if (currentTool === tool) {
-                    currentTool = null;
-                    btn.classList.remove('active');
-                    document.body.style.cursor = 'default';
-                } else {
-                    currentTool = tool;
-                    document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
-                    updateCursor();
-                }
-                updatePanelVisibility();
+                document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentTool = tool;
+                
+                // Обновляем видимость панелей настроек
+                document.querySelectorAll('.panel-section').forEach(panel => {
+                    panel.classList.remove('active');
+                });
+                document.querySelector(`.${tool}-settings`)?.classList.add('active');
             });
         });
 
@@ -574,6 +769,9 @@
                     document.body.style.cursor = 'crosshair';
                     break;
                 case 'fill':
+                    document.body.style.cursor = 'crosshair';
+                    break;
+                case 'eraser':
                     document.body.style.cursor = 'crosshair';
                     break;
                 default:
@@ -638,7 +836,7 @@
             ctx.globalAlpha = 1;
         }
 
-        // Обновляем функцию fill
+        // Функция заливки
         function fill(e) {
             if (currentTool !== 'fill') return;
 
@@ -647,76 +845,102 @@
             const pixels = imageData.data;
             
             const startPos = (Math.floor(pos.y) * canvas.width + Math.floor(pos.x)) * 4;
-            const startColor = {
-                r: pixels[startPos],
-                g: pixels[startPos + 1],
-                b: pixels[startPos + 2],
-                a: pixels[startPos + 3]
-            };
+            const startR = pixels[startPos];
+            const startG = pixels[startPos + 1];
+            const startB = pixels[startPos + 2];
+            const startA = pixels[startPos + 3];
 
             const fillColor = document.getElementById('fillColor').value;
-            const tolerance = document.getElementById('fillTolerance').value;
-            const opacity = document.getElementById('fillOpacity').value / 100;
+            const r = parseInt(fillColor.slice(1, 3), 16);
+            const g = parseInt(fillColor.slice(3, 5), 16);
+            const b = parseInt(fillColor.slice(5, 7), 16);
+            const a = Math.floor((document.getElementById('fillOpacity').value / 100) * 255);
 
-            const targetColor = {
-                r: parseInt(fillColor.slice(1, 3), 16),
-                g: parseInt(fillColor.slice(3, 5), 16),
-                b: parseInt(fillColor.slice(5, 7), 16),
-                a: Math.floor(opacity * 255)
-            };
+            const tolerance = parseInt(document.getElementById('fillTolerance').value);
 
-            floodFill(imageData, Math.floor(pos.x), Math.floor(pos.y), startColor, targetColor, tolerance);
-            ctx.putImageData(imageData, 0, 0);
-        }
+            // Функция проверки цвета
+            function matchesColor(x, y) {
+                const index = (y * canvas.width + x) * 4;
+                const dr = Math.abs(pixels[index] - startR);
+                const dg = Math.abs(pixels[index + 1] - startG);
+                const db = Math.abs(pixels[index + 2] - startB);
+                const da = Math.abs(pixels[index + 3] - startA);
+                
+                return (dr + dg + db + da) <= tolerance * 4;
+            }
 
-        function floodFill(imageData, startX, startY, startColor, targetColor, tolerance) {
-            const pixels = imageData.data;
-            const width = imageData.width;
-            const height = imageData.height;
-            
-            const stack = [[startX, startY]];
-            
+            // Функция заливки пикселя
+            function fillPixel(x, y) {
+                const index = (y * canvas.width + x) * 4;
+                pixels[index] = r;
+                pixels[index + 1] = g;
+                pixels[index + 2] = b;
+                pixels[index + 3] = a;
+            }
+
+            // Алгоритм заливки
+            const stack = [[Math.floor(pos.x), Math.floor(pos.y)]];
+            const visited = new Set();
+
             while (stack.length) {
                 const [x, y] = stack.pop();
-                const pos = (y * width + x) * 4;
+                const key = `${x},${y}`;
 
-                if (x < 0 || x >= width || y < 0 || y >= height) continue;
-                if (!matchesColor(pixels, pos, startColor, tolerance)) continue;
+                if (visited.has(key)) continue;
+                if (x < 0 || x >= canvas.width || y < 0 || y >= canvas.height) continue;
+                if (!matchesColor(x, y)) continue;
 
-                pixels[pos] = targetColor.r;
-                pixels[pos + 1] = targetColor.g;
-                pixels[pos + 2] = targetColor.b;
-                pixels[pos + 3] = targetColor.a;
+                fillPixel(x, y);
+                visited.add(key);
 
                 stack.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
             }
+
+            ctx.putImageData(imageData, 0, 0);
+            saveToHistory();
         }
 
-        function matchesColor(pixels, pos, color, tolerance) {
-            const dr = Math.abs(pixels[pos] - color.r);
-            const dg = Math.abs(pixels[pos + 1] - color.g);
-            const db = Math.abs(pixels[pos + 2] - color.b);
-            const da = Math.abs(pixels[pos + 3] - color.a);
-            return (dr + dg + db + da) <= tolerance * 4;
-        }
-
-        // Обработчики событий холста
-        canvas.addEventListener('mousedown', function(e) {
-            if (currentTool === 'brush') {
-                startDrawing(e);
-            } else if (currentTool === 'fill') {
+        // Добавляем обработчики событий для заливки
+        canvas.addEventListener('click', function(e) {
+            if (currentTool === 'fill') {
                 fill(e);
             }
         });
 
-        canvas.addEventListener('mousemove', function(e) {
-            if (isDrawing) {
+        // Обработчики событий холста
+        canvas.addEventListener('mousedown', function(e) {
+            isDrawing = true;
+            const pos = getCanvasCoordinates(e);
+            lastX = pos.x;
+            lastY = pos.y;
+            
+            if (currentTool === 'eraser') {
+                erase(e);
+            } else if (currentTool === 'brush') {
                 draw(e);
             }
         });
 
-        canvas.addEventListener('mouseup', stopDrawing);
-        canvas.addEventListener('mouseleave', stopDrawing);
+        canvas.addEventListener('mousemove', function(e) {
+            if (!isDrawing) return;
+            
+            if (currentTool === 'eraser') {
+                erase(e);
+            } else if (currentTool === 'brush') {
+                draw(e);
+            }
+        });
+
+        canvas.addEventListener('mouseup', function() {
+            if (isDrawing) {
+                isDrawing = false;
+                saveToHistory();
+            }
+        });
+
+        canvas.addEventListener('mouseleave', function() {
+            isDrawing = false;
+        });
 
         // Поддержка touch-событий для рисования
         canvas.addEventListener('touchstart', function(e) {
@@ -733,6 +957,9 @@
             } else if (currentTool === 'fill') {
                 const touch = e.touches[0];
                 fill(touch);
+            } else if (currentTool === 'eraser') {
+                const touch = e.touches[0];
+                erase(touch);
             }
         });
 
@@ -795,15 +1022,7 @@
             }
 
             localStorage.setItem('photoEditorProjects', JSON.stringify(projects));
-            alert('Проект сохранен!');
-        }
-
-        // Функция скачивания изображения
-        function downloadImage() {
-            const link = document.createElement('a');
-            link.download = `${currentProject.name || 'image'}.png`;
-            link.href = canvas.toDataURL();
-            link.click();
+            showToast('Успешно сохранено!');
         }
 
         // Обновляем функцию changeZoom
@@ -841,6 +1060,7 @@
             syncInputs('brushOpacity', 'brushOpacityNum');
             syncInputs('fillTolerance', 'fillToleranceNum');
             syncInputs('fillOpacity', 'fillOpacityNum');
+            syncInputs('eraserSize', 'eraserSizeNum');
 
             // Устанавливаем начальный масштаб
             changeZoom(0);
@@ -851,18 +1071,20 @@
             const range = document.getElementById(rangeId);
             const number = document.getElementById(numberId);
             
-            range.addEventListener('input', () => number.value = range.value);
-            number.addEventListener('input', () => range.value = number.value);
+            if (range && number) {
+                range.addEventListener('input', () => number.value = range.value);
+                number.addEventListener('input', () => range.value = number.value);
+            }
         }
 
         // Горячие клавиши
         document.addEventListener('keydown', function(e) {
-            if (e.key === 'v' || e.key === 'V') {
-                document.querySelector('[data-tool="move"]').click();
-            } else if (e.key === 'b' || e.key === 'B') {
-                document.querySelector('[data-tool="brush"]').click();
-            } else if (e.key === 'g' || e.key === 'G') {
-                document.querySelector('[data-tool="fill"]').click();
+            if (e.ctrlKey && (e.key === 'z' || e.key === 'Z')) {
+                e.preventDefault();
+                undo();
+            } else if (e.ctrlKey && (e.key === 'y' || e.key === 'Y' || e.key === 'й' || e.key === 'Й')) {
+                e.preventDefault();
+                redo();
             }
         });
 
