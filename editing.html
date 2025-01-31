@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Фоторедактор</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #2a2a2a;
+            color: #fff;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .header {
+            background-color: #1a1a1a;
+            padding: 10px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid #444;
+        }
+
+        .workspace {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .tools-panel {
+            width: 40px;
+            background-color: #2a2a2a;
+            border-right: 1px solid #444;
+            display: flex;
+            flex-direction: column;
+            gap: 1px;
+        }
+
+        .tool-btn {
+            width: 40px;
+            height: 40px;
+            background-color: #333;
+            border: none;
+            cursor: pointer;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            font-size: 20px;
+        }
+
+        .tool-btn:hover {
+            background-color: #444;
+        }
+
+        .tool-btn.active {
+            background-color: #444;
+            box-shadow: inset 0 0 0 2px #8A2BE2;
+        }
+
+        .tool-btn .tooltip {
+            position: absolute;
+            left: 45px;
+            background: #333;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: nowrap;
+            visibility: hidden;
+            opacity: 0;
+            transition: 0.2s;
+            pointer-events: none;
+        }
+
+        .tool-btn:hover .tooltip {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        .canvas-area {
+            flex: 1;
+            background: #1a1a1a;
+            overflow: auto;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            position: relative;
+        }
+
+        .canvas-container {
+            position: relative;
+            background: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAALEgAACxIB0t1+/AAAABZ0RVh0Q3JlYXRpb24gVGltZQAxMC8yOS8xMiKqq3kAAAAcdEVYdFNvZnR3YXJlAEFkb2JlIEZpcmV3b3JrcyBDUzVxteM2AAAAHklEQVQ4jWNgYGBgYHjy5Ml/hjF+BiYGBgYGBgYGBgYA1pkFNYVXfH4AAAAASUVORK5CYII=');
+        }
+
+        #canvas {
+            background: #fff;
+            box-shadow: 0 0 20px rgba(0,0,0,0.3);
+            display: block;
+        }
+
+        .properties-panel {
+            width: 250px;
+            background-color: #2a2a2a;
+            border-left: 1px solid #444;
+        }
+
+        .panel-section {
+            border-bottom: 1px solid #444;
+            padding: 15px;
+            display: none;
+        }
+
+        .panel-section.active {
+            display: block;
+        }
+
+        .panel-title {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        .control-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 5px;
+        }
+
+        input[type="range"] {
+            flex: 1;
+            height: 6px;
+            -webkit-appearance: none;
+            background: #444;
+            border-radius: 3px;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 12px;
+            height: 12px;
+            background: #fff;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        input[type="number"] {
+            width: 50px;
+            background: #444;
+            border: none;
+            color: #fff;
+            padding: 3px 5px;
+            border-radius: 3px;
+        }
+
+        .color-picker {
+            width: 100%;
+            height: 30px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        .cursor-overlay {
+            position: fixed;
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        .nav-btn {
+            background: #333;
+            border: none;
+            color: white;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+
+        .nav-btn:hover {
+            background: #444;
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        .zoom-controls {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            gap: 5px;
+            background: #333;
+            padding: 5px;
+            border-radius: 4px;
+            z-index: 1000;
+        }
+
+        .zoom-btn {
+            background: #444;
+            border: none;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .zoom-btn:hover {
+            background: #555;
+        }
+
+        .zoom-level {
+            background: #444;
+            padding: 0 10px;
+            display: flex;
+            align-items: center;
+            border-radius: 4px;
+            color: white;
+            min-width: 70px;
+            justify-content: center;
+        }
+
+        .project-name {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .project-name-text {
+            cursor: pointer;
+        }
+
+        .project-name-text:hover {
+            color: #8A2BE2;
+        }
+
+        .project-name-input {
+            background: #444;
+            border: none;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            width: 200px;
+            display: none;
+        }
+
+        .edit-name-btn {
+            opacity: 0;
+            cursor: pointer;
+            transition: opacity 0.2s;
+            font-size: 14px;
+        }
+
+        .project-name:hover .edit-name-btn {
+            opacity: 1;
+        }
+
+        /* Мобильная адаптация */
+        @media (max-width: 768px) {
+            .header {
+                flex-wrap: wrap;
+                gap: 10px;
+                padding: 10px;
+            }
+
+            .project-info {
+                width: 100%;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+
+            .header-controls {
+                width: 100%;
+                justify-content: space-between;
+            }
+
+            .workspace {
+                flex-direction: column;
+            }
+
+            .tools-panel {
+                width: 100%;
+                height: 60px;
+                flex-direction: row;
+                justify-content: center;
+                gap: 10px;
+                padding: 10px;
+            }
+
+            .tool-btn {
+                width: 45px;
+                height: 45px;
+                font-size: 24px;
+            }
+
+            .tool-btn .tooltip {
+                display: none; /* Скрываем подсказки на мобильных */
+            }
+
+            .canvas-area {
+                height: calc(100vh - 200px);
+                touch-action: none; /* Для лучшей работы с тач-событиями */
+            }
+
+            .properties-panel {
+                width: 100%;
+                height: auto;
+                max-height: 250px;
+                overflow-y: auto;
+            }
+
+            .panel-section {
+                padding: 15px;
+            }
+
+            .control-row {
+                margin-bottom: 15px;
+            }
+
+            .control-row label {
+                min-width: 100px;
+            }
+
+            input[type="range"] {
+                height: 20px; /* Увеличиваем для удобства на тач-устройствах */
+            }
+
+            input[type="number"] {
+                width: 60px;
+                padding: 8px;
+                font-size: 16px;
+            }
+
+            .color-picker {
+                height: 40px;
+            }
+
+            .zoom-controls {
+                bottom: auto;
+                top: 10px;
+                right: 10px;
+            }
+
+            .zoom-btn {
+                width: 40px;
+                height: 40px;
+                font-size: 20px;
+            }
+
+            /* Улучшаем touch-target размеры */
+            .nav-btn {
+                padding: 12px 20px;
+                font-size: 16px;
+                min-height: 44px;
+            }
+
+            /* Стили для модальных окон на мобильных */
+            .confirm-dialog {
+                width: 90%;
+                max-width: 320px;
+            }
+
+            .dialog-btn {
+                padding: 12px;
+                font-size: 16px;
+                min-height: 44px;
+            }
+        }
+
+        /* Добавляем поддержку жестов */
+        @media (hover: none) {
+            .tool-btn:hover {
+                background-color: #333;
+            }
+
+            .tool-btn:active {
+                background-color: #444;
+            }
+
+            .nav-btn:active {
+                transform: scale(0.98);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="project-info">
+            <button onclick="window.location.href='index.html'" class="nav-btn">← Назад</button>
+            <div class="project-name">
+                <span class="project-name-text" onclick="startEditing()"
+                      id="projectName">Без названия</span>
+                <input type="text" class="project-name-input" id="projectNameInput">
+                <span class="edit-name-btn" onclick="startEditing()">✎</span>
+            </div>
+        </div>
+        <div class="header-controls">
+            <button onclick="downloadImage()" class="nav-btn">Скачать</button>
+            <button onclick="saveProject()" class="nav-btn">Сохранить</button>
+        </div>
+    </div>
+
+    <div class="workspace">
+        <div class="tools-panel">
+            <button class="tool-btn" data-tool="move">
+                ↕
+                <span class="tooltip">Перемещение (V)</span>
+            </button>
+            <button class="tool-btn" data-tool="brush">
+                🖌
+                <span class="tooltip">Кисть (B)</span>
+            </button>
+            <button class="tool-btn" data-tool="fill">
+                🪣
+                <span class="tooltip">Заливка (G)</span>
+            </button>
+        </div>
+
+        <div class="canvas-area">
+            <div class="canvas-container">
+                <canvas id="canvas"></canvas>
+            </div>
+            <div class="zoom-controls">
+                <button class="zoom-btn" onclick="changeZoom(-0.1)">-</button>
+                <div class="zoom-level">100%</div>
+                <button class="zoom-btn" onclick="changeZoom(0.1)">+</button>
+            </div>
+        </div>
+
+        <div class="properties-panel">
+            <div class="panel-section brush-settings">
+                <div class="panel-title">Настройки кисти</div>
+                <div class="control-group">
+                    <div class="control-row">
+                        <label>Размер:</label>
+                        <input type="range" id="brushSize" min="1" max="100" value="20">
+                        <input type="number" id="brushSizeNum" min="1" max="100" value="20">
+                    </div>
+                </div>
+                <div class="control-group">
+                    <div class="control-row">
+                        <label>Непрозрачность:</label>
+                        <input type="range" id="brushOpacity" min="1" max="100" value="100">
+                        <input type="number" id="brushOpacityNum" min="1" max="100" value="100">
+                    </div>
+                </div>
+                <div class="control-group">
+                    <div class="panel-title">Цвет</div>
+                    <input type="color" id="brushColor" class="color-picker" value="#000000">
+                </div>
+            </div>
+
+            <div class="panel-section fill-settings">
+                <div class="panel-title">Настройки заливки</div>
+                <div class="control-group">
+                    <div class="control-row">
+                        <label>Допуск:</label>
+                        <input type="range" id="fillTolerance" min="0" max="100" value="32">
+                        <input type="number" id="fillToleranceNum" min="0" max="100" value="32">
+                    </div>
+                </div>
+                <div class="control-group">
+                    <div class="control-row">
+                        <label>Непрозрачность:</label>
+                        <input type="range" id="fillOpacity" min="1" max="100" value="100">
+                        <input type="number" id="fillOpacityNum" min="1" max="100" value="100">
+                    </div>
+                </div>
+                <div class="control-group">
+                    <div class="panel-title">Цвет</div>
+                    <input type="color" id="fillColor" class="color-picker" value="#000000">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="cursor-overlay"></div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let currentProject = null;
+        let currentTool = null;
+        let isDrawing = false;
+        let lastX = 0;
+        let lastY = 0;
+        let zoomLevel = 1;
+        const zoomLevelDisplay = document.querySelector('.zoom-level');
+
+        // Инициализация проекта
+        async function loadProject() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const projectId = urlParams.get('id');
+            
+            if (!projectId) {
+                window.location.href = 'index.html';
+                return;
+            }
+
+            const projects = JSON.parse(localStorage.getItem('photoEditorProjects') || '[]');
+            currentProject = projects.find(p => p.id === projectId);
+
+            if (!currentProject) {
+                window.location.href = 'index.html';
+                return;
+            }
+
+            document.getElementById('projectName').textContent = currentProject.name;
+
+            if (currentProject.imageData) {
+                const img = new Image();
+                img.onload = function() {
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    ctx.drawImage(img, 0, 0);
+                };
+                img.src = currentProject.imageData;
+            } else {
+                canvas.width = currentProject.width || 800;
+                canvas.height = currentProject.height || 600;
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+        }
+
+        // Управление инструментами
+        document.querySelectorAll('.tool-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tool = btn.dataset.tool;
+                if (currentTool === tool) {
+                    currentTool = null;
+                    btn.classList.remove('active');
+                    document.body.style.cursor = 'default';
+                } else {
+                    currentTool = tool;
+                    document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    updateCursor();
+                }
+                updatePanelVisibility();
+            });
+        });
+
+        function updateCursor() {
+            switch(currentTool) {
+                case 'move':
+                    document.body.style.cursor = 'grab';
+                    break;
+                case 'brush':
+                    document.body.style.cursor = 'crosshair';
+                    break;
+                case 'fill':
+                    document.body.style.cursor = 'crosshair';
+                    break;
+                default:
+                    document.body.style.cursor = 'default';
+            }
+        }
+
+        function updatePanelVisibility() {
+            document.querySelectorAll('.panel-section').forEach(panel => {
+                panel.classList.remove('active');
+            });
+            if (currentTool) {
+                document.querySelector(`.${currentTool}-settings`)?.classList.add('active');
+            }
+        }
+
+        // Обновляем функцию получения координат с учетом масштаба
+        function getCanvasCoordinates(e) {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            
+            return {
+                x: (clientX - rect.left) / zoomLevel,
+                y: (clientY - rect.top) / zoomLevel
+            };
+        }
+
+        // Обновляем функцию startDrawing
+        function startDrawing(e) {
+            if (currentTool !== 'brush') return;
+            isDrawing = true;
+            const pos = getCanvasCoordinates(e);
+            lastX = pos.x;
+            lastY = pos.y;
+            draw(e);
+        }
+
+        // Обновляем функцию draw
+        function draw(e) {
+            if (!isDrawing || currentTool !== 'brush') return;
+
+            const pos = getCanvasCoordinates(e);
+            
+            ctx.beginPath();
+            ctx.moveTo(lastX, lastY);
+            ctx.lineTo(pos.x, pos.y);
+            
+            ctx.lineWidth = document.getElementById('brushSize').value / zoomLevel; // Корректируем размер кисти
+            ctx.lineCap = 'round';
+            ctx.strokeStyle = document.getElementById('brushColor').value;
+            ctx.globalAlpha = document.getElementById('brushOpacity').value / 100;
+            
+            ctx.stroke();
+            
+            lastX = pos.x;
+            lastY = pos.y;
+        }
+
+        function stopDrawing() {
+            isDrawing = false;
+            ctx.globalAlpha = 1;
+        }
+
+        // Обновляем функцию fill
+        function fill(e) {
+            if (currentTool !== 'fill') return;
+
+            const pos = getCanvasCoordinates(e);
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const pixels = imageData.data;
+            
+            const startPos = (Math.floor(pos.y) * canvas.width + Math.floor(pos.x)) * 4;
+            const startColor = {
+                r: pixels[startPos],
+                g: pixels[startPos + 1],
+                b: pixels[startPos + 2],
+                a: pixels[startPos + 3]
+            };
+
+            const fillColor = document.getElementById('fillColor').value;
+            const tolerance = document.getElementById('fillTolerance').value;
+            const opacity = document.getElementById('fillOpacity').value / 100;
+
+            const targetColor = {
+                r: parseInt(fillColor.slice(1, 3), 16),
+                g: parseInt(fillColor.slice(3, 5), 16),
+                b: parseInt(fillColor.slice(5, 7), 16),
+                a: Math.floor(opacity * 255)
+            };
+
+            floodFill(imageData, Math.floor(pos.x), Math.floor(pos.y), startColor, targetColor, tolerance);
+            ctx.putImageData(imageData, 0, 0);
+        }
+
+        function floodFill(imageData, startX, startY, startColor, targetColor, tolerance) {
+            const pixels = imageData.data;
+            const width = imageData.width;
+            const height = imageData.height;
+            
+            const stack = [[startX, startY]];
+            
+            while (stack.length) {
+                const [x, y] = stack.pop();
+                const pos = (y * width + x) * 4;
+
+                if (x < 0 || x >= width || y < 0 || y >= height) continue;
+                if (!matchesColor(pixels, pos, startColor, tolerance)) continue;
+
+                pixels[pos] = targetColor.r;
+                pixels[pos + 1] = targetColor.g;
+                pixels[pos + 2] = targetColor.b;
+                pixels[pos + 3] = targetColor.a;
+
+                stack.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
+            }
+        }
+
+        function matchesColor(pixels, pos, color, tolerance) {
+            const dr = Math.abs(pixels[pos] - color.r);
+            const dg = Math.abs(pixels[pos + 1] - color.g);
+            const db = Math.abs(pixels[pos + 2] - color.b);
+            const da = Math.abs(pixels[pos + 3] - color.a);
+            return (dr + dg + db + da) <= tolerance * 4;
+        }
+
+        // Обработчики событий холста
+        canvas.addEventListener('mousedown', function(e) {
+            if (currentTool === 'brush') {
+                startDrawing(e);
+            } else if (currentTool === 'fill') {
+                fill(e);
+            }
+        });
+
+        canvas.addEventListener('mousemove', function(e) {
+            if (isDrawing) {
+                draw(e);
+            }
+        });
+
+        canvas.addEventListener('mouseup', stopDrawing);
+        canvas.addEventListener('mouseleave', stopDrawing);
+
+        // Поддержка touch-событий для рисования
+        canvas.addEventListener('touchstart', function(e) {
+            e.preventDefault();
+            if (currentTool === 'brush') {
+                const touch = e.touches[0];
+                const rect = canvas.getBoundingClientRect();
+                const x = (touch.clientX - rect.left) / zoomLevel;
+                const y = (touch.clientY - rect.top) / zoomLevel;
+                isDrawing = true;
+                lastX = x;
+                lastY = y;
+                draw(touch);
+            } else if (currentTool === 'fill') {
+                const touch = e.touches[0];
+                fill(touch);
+            }
+        });
+
+        canvas.addEventListener('touchmove', function(e) {
+            e.preventDefault();
+            if (isDrawing) {
+                const touch = e.touches[0];
+                draw(touch);
+            }
+        });
+
+        canvas.addEventListener('touchend', stopDrawing);
+        canvas.addEventListener('touchcancel', stopDrawing);
+
+        // Поддержка масштабирования щипком
+        let initialPinchDistance = null;
+        let initialScale = 1;
+
+        canvas.addEventListener('touchstart', function(e) {
+            if (e.touches.length === 2) {
+                e.preventDefault();
+                initialPinchDistance = getPinchDistance(e);
+                initialScale = zoomLevel;
+            }
+        });
+
+        canvas.addEventListener('touchmove', function(e) {
+            if (e.touches.length === 2) {
+                e.preventDefault();
+                const currentDistance = getPinchDistance(e);
+                if (initialPinchDistance) {
+                    const newScale = initialScale * (currentDistance / initialPinchDistance);
+                    changeZoom(newScale - zoomLevel);
+                }
+            }
+        });
+
+        function getPinchDistance(e) {
+            return Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY
+            );
+        }
+
+        // Сохранение проекта
+        function saveProject() {
+            if (!currentProject) return;
+
+            currentProject.imageData = canvas.toDataURL();
+            currentProject.preview = canvas.toDataURL();
+            currentProject.lastModified = Date.now();
+
+            const projects = JSON.parse(localStorage.getItem('photoEditorProjects') || '[]');
+            const projectIndex = projects.findIndex(p => p.id === currentProject.id);
+
+            if (projectIndex !== -1) {
+                projects[projectIndex] = currentProject;
+            } else {
+                projects.push(currentProject);
+            }
+
+            localStorage.setItem('photoEditorProjects', JSON.stringify(projects));
+            alert('Проект сохранен!');
+        }
+
+        // Функция скачивания изображения
+        function downloadImage() {
+            const link = document.createElement('a');
+            link.download = `${currentProject.name || 'image'}.png`;
+            link.href = canvas.toDataURL();
+            link.click();
+        }
+
+        // Обновляем функцию changeZoom
+        function changeZoom(delta) {
+            const oldZoom = zoomLevel;
+            zoomLevel = Math.max(0.1, Math.min(5, zoomLevel + delta));
+            
+            const container = document.querySelector('.canvas-container');
+            container.style.transform = `scale(${zoomLevel})`;
+            
+            // Обновляем размер кисти в интерфейсе
+            const brushSize = document.getElementById('brushSize');
+            const brushSizeNum = document.getElementById('brushSizeNum');
+            brushSize.value = parseInt(brushSize.value * oldZoom / zoomLevel);
+            brushSizeNum.value = brushSize.value;
+            
+            zoomLevelDisplay.textContent = `${Math.round(zoomLevel * 100)}%`;
+        }
+
+        // Добавляем масштабирование колесиком мыши
+        document.querySelector('.canvas-area').addEventListener('wheel', function(e) {
+            if (e.ctrlKey) {
+                e.preventDefault();
+                const delta = e.deltaY > 0 ? -0.1 : 0.1;
+                changeZoom(delta);
+            }
+        });
+
+        // Инициализация
+        window.addEventListener('load', function() {
+            loadProject();
+            
+            // Синхронизация всех ползунков
+            syncInputs('brushSize', 'brushSizeNum');
+            syncInputs('brushOpacity', 'brushOpacityNum');
+            syncInputs('fillTolerance', 'fillToleranceNum');
+            syncInputs('fillOpacity', 'fillOpacityNum');
+
+            // Устанавливаем начальный масштаб
+            changeZoom(0);
+        });
+
+        // Синхронизация ползунков
+        function syncInputs(rangeId, numberId) {
+            const range = document.getElementById(rangeId);
+            const number = document.getElementById(numberId);
+            
+            range.addEventListener('input', () => number.value = range.value);
+            number.addEventListener('input', () => range.value = number.value);
+        }
+
+        // Горячие клавиши
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'v' || e.key === 'V') {
+                document.querySelector('[data-tool="move"]').click();
+            } else if (e.key === 'b' || e.key === 'B') {
+                document.querySelector('[data-tool="brush"]').click();
+            } else if (e.key === 'g' || e.key === 'G') {
+                document.querySelector('[data-tool="fill"]').click();
+            }
+        });
+
+        // Добавляем функции редактирования имени
+        function startEditing() {
+            const nameText = document.getElementById('projectName');
+            const nameInput = document.getElementById('projectNameInput');
+            
+            nameText.style.display = 'none';
+            nameInput.style.display = 'block';
+            nameInput.value = nameText.textContent;
+            nameInput.focus();
+            
+            nameInput.onblur = () => finishEditing();
+            nameInput.onkeydown = (e) => {
+                if (e.key === 'Enter') {
+                    finishEditing();
+                }
+            };
+        }
+
+        function finishEditing() {
+            const nameText = document.getElementById('projectName');
+            const nameInput = document.getElementById('projectNameInput');
+            const newName = nameInput.value.trim();
+            
+            if (newName && currentProject) {
+                currentProject.name = newName;
+                nameText.textContent = newName;
+                
+                const projects = JSON.parse(localStorage.getItem('photoEditorProjects') || '[]');
+                const projectIndex = projects.findIndex(p => p.id === currentProject.id);
+                
+                if (projectIndex !== -1) {
+                    projects[projectIndex].name = newName;
+                    localStorage.setItem('photoEditorProjects', JSON.stringify(projects));
+                }
+            }
+            
+            nameText.style.display = 'block';
+            nameInput.style.display = 'none';
+        }
+    </script>
+</body>
+</html>
