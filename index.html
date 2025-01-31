@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Фоторедактор</title>
     <style>
         * {
@@ -638,6 +638,48 @@
 
         .create-btn:hover {
             background: #9A3BF2;
+        }
+
+        /* Мобильные стили для index.html */
+        @media (max-width: 768px) {
+            .projects-grid {
+                grid-template-columns: 1fr;
+                padding: 10px;
+            }
+
+            .start-options {
+                flex-direction: column;
+                padding: 15px;
+            }
+
+            .start-option {
+                width: 100%;
+                margin: 5px 0;
+            }
+
+            .new-project-dialog {
+                width: 95%;
+                padding: 15px;
+            }
+
+            .templates-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 10px;
+            }
+
+            .size-inputs {
+                grid-template-columns: 1fr;
+            }
+
+            .modal-actions {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .modal-actions button {
+                width: 100%;
+                padding: 12px;
+            }
         }
     </style>
 </head>
